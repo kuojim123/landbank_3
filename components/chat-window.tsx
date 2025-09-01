@@ -15,6 +15,13 @@ interface QuickAction {
   action?: string
 }
 
+interface Recommendation {
+  text: string
+  url: string
+  priority: string
+  context: string
+}
+
 interface Message {
   id: string
   type: "user" | "assistant"
@@ -23,6 +30,7 @@ interface Message {
   quickActions?: QuickAction[]
   feedback?: "helpful" | "not-helpful" | null
   query?: string // Added to store original query for feedback
+  recommendations?: Recommendation[]
 }
 
 interface ChatWindowProps {
@@ -181,6 +189,7 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
           quickActions: data.quick_actions || [],
           feedback: null,
           query: currentQuery,
+          recommendations: data.recommendations || [],
         }
 
         setMessages((prev) => [...prev, assistantMessage])
@@ -196,6 +205,7 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
         quickActions: [],
         feedback: null,
         query: currentQuery,
+        recommendations: [],
       }
 
       setMessages((prev) => [...prev, errorMessage])
@@ -244,6 +254,7 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
             quickActions: data.quick_actions || [],
             feedback: null,
             query: action.text,
+            recommendations: data.recommendations || [],
           }
 
           console.log("[v0] Adding assistant message:", assistantMessage)
@@ -262,6 +273,7 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
           quickActions: [],
           feedback: null,
           query: action.text,
+          recommendations: [],
         }
 
         setMessages((prev) => [...prev, errorMessage])
@@ -349,6 +361,41 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
     }
   }
 
+  const handleRecommendationClick = (recommendation: Recommendation) => {
+    const message = messages.find((msg) => msg.recommendations?.includes(recommendation))
+    if (message) {
+      // Track the click event
+      fetch("/api/assistant/analytics", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          recommendationText: recommendation.text,
+          recommendationUrl: recommendation.url,
+          context: recommendation.context,
+          priority: recommendation.priority,
+          userQuery: message.query,
+          sessionId: `session_${Date.now()}`,
+          action: "clicked",
+          messageId: message.id,
+        }),
+      }).catch((error) => {
+        console.error("Failed to track recommendation click:", error)
+      })
+    }
+
+    const smeUrl = "https://www.landbank.com.tw/Category/Items/%E4%B8%AD%E5%B0%8F%E4%BC%81%E6%A5%AD%E8%B2%B8%E6%AC%BE"
+    const targetUrl =
+      recommendation.text.includes("中小企業貸款") ||
+      recommendation.text.includes("營運資金") ||
+      recommendation.text.includes("企業貸款")
+        ? smeUrl
+        : recommendation.url
+
+    window.open(targetUrl, "_blank")
+  }
+
   if (!isOpen) return null
 
   return (
@@ -400,9 +447,33 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
                   )}
                 </div>
 
+                {message.type === "assistant" && message.recommendations && message.recommendations.length > 0 && (
+                  <div className="mt-3 p-3 bg-gradient-to-r from-blue-50 to-indigo-50 border border-blue-100 rounded-lg">
+                    <div className="flex items-center mb-2">
+                      <span className="text-sm mr-1">🎯</span>
+                      <h4 className="text-sm font-medium text-gray-700">為您推薦</h4>
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5">
+                      {message.recommendations.map((recommendation, index) => (
+                        <Button
+                          key={index}
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleRecommendationClick(recommendation)}
+                          className="justify-start min-h-8 px-3 py-2 text-xs text-gray-600 hover:text-blue-500 hover:bg-white/80 border border-transparent hover:border-blue-200 transition-all duration-200 whitespace-normal text-left leading-relaxed"
+                          style={{ borderRadius: "6px" }}
+                        >
+                          <span className="text-blue-500 mr-2 flex-shrink-0">💼</span>
+                          <span className="break-words">{recommendation.text}</span>
+                        </Button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
                 {message.type === "assistant" &&
                   message.query &&
-                  generateSmartRecommendations(message.query, recommendedQuestions).length > 0 && (
+                  (!message.recommendations || message.recommendations.length === 0) && (
                     <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-lg">
                       <div className="flex items-center mb-2">
                         <span className="text-sm mr-1">💡</span>
@@ -416,7 +487,7 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
                               variant="ghost"
                               size="sm"
                               onClick={() => handleQuickAction(recommendation)}
-                              className="justify-start min-h-8 px-3 py-2 text-xs text-gray-600 hover:text-[#34C759] hover:bg-white/80 border border-transparent hover:border-green-200 transition-all duration-200 whitespace-normal text-left leading-relaxed"
+                              className="justify-start min-h-8 px-3 py-2 text-xs text-gray-600 hover:text-green-500 hover:bg-white/80 border border-transparent hover:border-green-200 transition-all duration-200 whitespace-normal text-left leading-relaxed"
                               style={{ borderRadius: "6px" }}
                             >
                               <span className="text-green-500 mr-2 flex-shrink-0">→</span>

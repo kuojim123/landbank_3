@@ -7,7 +7,7 @@ export default function HomePage() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center sm:flex-row flex-col sm:space-x-3 space-x-0">
-              <div className="flex items-center">
+              <div className="flex items-center leading-7">
                 <img
                   src="https://hebbkx1anhila5yf.public.blob.vercel-storage.com/logo-QlEvvfqJsQiUYqnt72Qf8AZRfU6GxB.png"
                   alt="Land Bank of Taiwan Logo"

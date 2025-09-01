@@ -9,6 +9,14 @@ const knowledgeBaseData = [
     answer_html:
       "<p>您好，貴公司只要符合以下條件並準備好文件，即可向本行任一分行臨櫃辦理：</p><ul><li><strong>申請資格：</strong>只要是公司、行號、政府機關、學校、公營事業或其他團體，且已在本行開設活期性存款帳戶（含支票存款戶）。</li><li><strong>辦理文件（由負責人攜帶）：</strong>主管機關核准設立的證明文件（如公司設立登記表）、繳納營業稅的證明、負責人本人的身分證、公司原留印鑑。</li><li><strong>申請代表帳號：</strong>您只需選擇其中一個活期性存款帳戶進行申請，該帳號將作為您的網路銀行申請代表帳號。</li><li><strong>開通程序：</strong>申辦完成後，本行將核發網路銀行密碼單。請您在收到密碼單後一個月內，使用上面的使用者代號和密碼初值登入企業網路銀行，並依指示完成密碼變更，即可啟用服務。<ul><li>「使用者代號初值」企業戶為「admin」，登錄後可自行變更為6至20碼英數字（英文字母不區分大小寫）。</li><li>「密碼初值」為八碼隨機數字，登錄後可自行變更為8至16碼英數字，並限採英數字混合使用（英文字母區分大小寫）。</li></ul></li></ul>",
     quick_actions: [{ text: "查詢最近分行", url: "/branch-locator" }],
+    recommendations: [
+      {
+        text: "需要營運資金嗎？了解我們的中小企業貸款方案",
+        url: "/business-loan",
+        priority: "high",
+        context: "enterprise_account_application",
+      },
+    ],
   },
   {
     id: "ACC-02",
@@ -511,7 +519,7 @@ const knowledgeBaseData = [
     id: "CERT-05",
     category: "憑證與讀卡機問題",
     tags: ["36896", "PIN Code已鎖", "憑證密碼"],
-    question: "畫面顯示「36896 PIN Code 已鎖」，是什麼意思？",
+    question: "畫面顯示「36896 PIN Code 已鎖」，是什麼���思？",
     answer_html:
       "<p>這表示您的FXML憑證卡密碼（PIN碼）連續輸入錯誤三次，卡片已被鎖定。需要麻煩您親自到分行辦理<strong>「解鎖卡片」</strong>或「重置密碼」。</p>",
     quick_actions: [{ text: "查詢最近分行", url: "/branch-locator" }],
@@ -624,11 +632,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({
         answer_html: foundAnswer.answer_html,
         quick_actions: foundAnswer.quick_actions,
+        recommendations: foundAnswer.recommendations || [],
       })
     } else {
       return NextResponse.json({
         answer_html: "<p>抱歉，我暫時無法理解您的問題。您可以試著換個方式提問，或聯繫真人客服。</p>",
         quick_actions: [{ text: "聯絡客服", action: "show_contact" }],
+        recommendations: [],
       })
     }
   } catch (error) {
