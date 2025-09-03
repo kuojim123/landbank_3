@@ -43,6 +43,7 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   const [inputValue, setInputValue] = useState("")
   const [isLoading, setIsLoading] = useState(false)
   const [recommendedQuestions, setRecommendedQuestions] = useState<Set<string>>(new Set())
+  const [clickedRecommendations, setClickedRecommendations] = useState<Set<string>>(new Set())
   const [feedbackModal, setFeedbackModal] = useState<{
     isOpen: boolean
     messageId: string
@@ -62,6 +63,8 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
     excludeQuestions: Set<string> = new Set(),
   ): QuickAction[] => {
     const query = userQuery.toLowerCase()
+
+    const filteredQuestions = new Set(["已將憑證成功啟用，但客戶端電腦毀損或欲在其他電腦上進行簽章，該如何處理？"])
 
     const knowledgeBaseRecommendations: { [key: string]: QuickAction[] } = {
       login: [
@@ -119,6 +122,19 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
 
     if (query.includes("登入") || query.includes("密碼") || query.includes("帳號")) {
       recommendations = knowledgeBaseRecommendations.login
+
+      const isPasswordResetQuery =
+        query.includes("重設") ||
+        query.includes("重置") ||
+        query.includes("忘記") ||
+        query.includes("遺忘") ||
+        query.includes("鎖住") ||
+        query.includes("變更")
+
+      if (isPasswordResetQuery) {
+        // Filter out one of the similar password questions to avoid redundancy
+        recommendations = recommendations.filter((rec) => rec.text !== "如何變更企業網路銀行登入密碼？")
+      }
     } else if (query.includes("轉帳") || query.includes("匯款") || query.includes("付款") || query.includes("限額")) {
       recommendations = knowledgeBaseRecommendations.transfer
     } else if (
@@ -150,7 +166,8 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
       ]
     }
 
-    const filteredRecommendations = recommendations.filter((rec) => !excludeQuestions.has(rec.text))
+    const allExcludedQuestions = new Set([...excludeQuestions, ...filteredQuestions])
+    const filteredRecommendations = recommendations.filter((rec) => !allExcludedQuestions.has(rec.text))
     return filteredRecommendations.slice(0, 3)
   }
 
@@ -362,9 +379,10 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
   }
 
   const handleRecommendationClick = (recommendation: Recommendation) => {
+    setClickedRecommendations((prev) => new Set([...prev, recommendation.text]))
+
     const message = messages.find((msg) => msg.recommendations?.includes(recommendation))
     if (message) {
-      // Track the click event
       fetch("/api/assistant/analytics", {
         method: "POST",
         headers: {
@@ -454,19 +472,22 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
                       <h4 className="text-sm font-medium text-gray-700">為您推薦</h4>
                     </div>
                     <div className="grid grid-cols-1 gap-1.5">
-                      {message.recommendations.map((recommendation, index) => (
-                        <Button
-                          key={index}
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleRecommendationClick(recommendation)}
-                          className="justify-start min-h-8 px-3 py-2 text-xs text-gray-600 hover:text-blue-500 hover:bg-white/80 border border-transparent hover:border-blue-200 transition-all duration-200 whitespace-normal text-left leading-relaxed"
-                          style={{ borderRadius: "6px" }}
-                        >
-                          <span className="text-blue-500 mr-2 flex-shrink-0">💼</span>
-                          <span className="break-words">{recommendation.text}</span>
-                        </Button>
-                      ))}
+                      {message.recommendations
+                        .filter((recommendation) => !clickedRecommendations.has(recommendation.text))
+                        .slice(0, 3)
+                        .map((recommendation, index) => (
+                          <Button
+                            key={index}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleRecommendationClick(recommendation)}
+                            className="justify-start min-h-8 px-3 py-2 text-xs text-gray-600 hover:text-blue-500 hover:bg-white/80 border border-transparent hover:border-blue-200 transition-all duration-200 whitespace-normal text-left leading-relaxed"
+                            style={{ borderRadius: "6px" }}
+                          >
+                            <span className="text-blue-500 mr-2 flex-shrink-0">💼</span>
+                            <span className="break-words">{recommendation.text}</span>
+                          </Button>
+                        ))}
                     </div>
                   </div>
                 )}
@@ -475,26 +496,27 @@ export function ChatWindow({ isOpen, onClose }: ChatWindowProps) {
                   message.query &&
                   (!message.recommendations || message.recommendations.length === 0) && (
                     <div className="mt-3 p-3 bg-gradient-to-r from-green-50 to-emerald-50 border border-green-100 rounded-lg">
-                      <div className="flex items-center mb-2">
-                        <span className="text-sm mr-1">💡</span>
+                      <div className="flex items-center mb-3">
+                        <span className="text-sm mr-2 flex-shrink-0">💡</span>
                         <h4 className="text-sm font-medium text-gray-700">阿福猜您也想知道</h4>
                       </div>
                       <div className="grid grid-cols-1 gap-1.5">
-                        {generateSmartRecommendations(message.query, recommendedQuestions).map(
-                          (recommendation, index) => (
-                            <Button
-                              key={index}
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleQuickAction(recommendation)}
-                              className="justify-start min-h-8 px-3 py-2 text-xs text-gray-600 hover:text-green-500 hover:bg-white/80 border border-transparent hover:border-green-200 transition-all duration-200 whitespace-normal text-left leading-relaxed"
-                              style={{ borderRadius: "6px" }}
-                            >
-                              <span className="text-green-500 mr-2 flex-shrink-0">→</span>
-                              <span className="break-words">{recommendation.text}</span>
-                            </Button>
-                          ),
-                        )}
+                        {generateSmartRecommendations(
+                          message.query,
+                          new Set([...recommendedQuestions, ...clickedRecommendations]),
+                        ).map((recommendation, index) => (
+                          <Button
+                            key={index}
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleQuickAction(recommendation)}
+                            className="justify-start min-h-8 px-3 py-2 text-xs text-gray-600 hover:text-green-500 hover:bg-white/80 border border-transparent hover:border-green-200 transition-all duration-200 whitespace-normal text-left leading-relaxed"
+                            style={{ borderRadius: "6px" }}
+                          >
+                            <span className="text-green-500 mr-2 flex-shrink-0">→</span>
+                            <span className="break-words">{recommendation.text}</span>
+                          </Button>
+                        ))}
                       </div>
                     </div>
                   )}
